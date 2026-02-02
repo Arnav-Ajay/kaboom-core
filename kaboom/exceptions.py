@@ -1,3 +1,4 @@
+# kaboom/exceptions.py
 class KaboomError(Exception):
     pass
 
