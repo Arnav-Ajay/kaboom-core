@@ -1,5 +1,5 @@
-from kaboom.cards.card import Card, Rank, Suit
-
+# kaboom/tests/test_cards.py
+from kaboom.cards import Card, Rank, Suit
 
 def test_red_king_score_zero():
     card = Card(Rank.K, Suit.HEARTS)

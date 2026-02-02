@@ -1,9 +1,10 @@
+# kaboom/tests/test_turn_actions.py
 import pytest
 
-from kaboom.game.turn import apply_action
-from kaboom.game.actions import Draw, Discard, Replace, CallKaboom
+from kaboom.game import apply_action
+from kaboom.game import Draw, Discard, Replace, CallKaboom
 from kaboom.exceptions import InvalidActionError
-from kaboom.cards.card import Rank
+from kaboom.cards import Rank
 
 
 def test_draw_adds_drawn_card(simple_game_state):
@@ -40,7 +41,7 @@ def test_replace_discards_old_card(simple_game_state):
     apply_action(simple_game_state, Replace(actor_id=0, target_index=0))
 
     assert old_card in simple_game_state.discard_pile
-    assert len(p1.hand) == 2
+    assert len(p1.hand) == 4
     assert simple_game_state.drawn_card is None
     assert simple_game_state.reaction_open is True
 

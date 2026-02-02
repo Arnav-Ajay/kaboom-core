@@ -1,7 +1,8 @@
+# kaboom/tests/test_endgame.py
 import pytest
 
-from kaboom.game.turn import apply_action
-from kaboom.game.actions import CallKaboom
+from kaboom.game import apply_action
+from kaboom.game import Draw, Discard, CallKaboom
 from kaboom.exceptions import InvalidActionError
 
 
