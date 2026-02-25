@@ -1,7 +1,7 @@
 # kaboom/game/turn.py
 from __future__ import annotations
 
-from kaboom.cards.card import Card
+from kaboom.cards import Card
 from kaboom.exceptions import InvalidActionError
 from kaboom.game.actions import (
     Action,
@@ -12,6 +12,7 @@ from kaboom.game.actions import (
     CallKaboom,
 )
 from kaboom.game.game_state import GameState
+from kaboom.powers.registry import POWER_REGISTRY
 
 def _validate_turn_owner(state: GameState, actor_id: int) -> None:
     current = state.current_player()
@@ -65,16 +66,23 @@ def _discard(state: GameState, action: Discard) -> None:
     state.reaction_open = True
 
     state.advance_turn()
-def _use_power(state: GameState, action: UsePower) -> None:
-    if state.drawn_card != action.source_card:
-        raise InvalidActionError("Power card must be the drawn card.")
 
-    # Power resolution will:
-    # - consume the card
-    # - mutate hands / memory
-    # - decide if a swap happens
-    # Implemented in kaboom/powers/*
-    raise NotImplementedError("Power resolution not wired yet.")
+def _use_power(state: GameState, action: UsePower) -> None:
+    card = action.source_card
+
+    if state.drawn_card != card:
+        raise InvalidActionError("Power must use drawn card.")
+
+    for power in POWER_REGISTRY:
+        if power.can_apply(state, action.actor_id, card):
+            power.apply(state, action)
+            break
+    else:
+        raise InvalidActionError("No valid power for this card.")
+
+    state.discard_pile.append(card)
+    state.drawn_card = None
+    state.advance_turn()
 
 def _call_kaboom(state: GameState, action: CallKaboom) -> None:
     if state.round_number <= 1:

@@ -4,8 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Protocol
 
-from kaboom.cards.card import Card
-from kaboom.cards.card import Rank
+from kaboom.cards.card import Card, Rank
 
 class Action(Protocol):
     """
