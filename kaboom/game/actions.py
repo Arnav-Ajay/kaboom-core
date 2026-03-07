@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Protocol
 
-from kaboom.cards.card import Card, Rank
+from kaboom.cards.card import Card
 
 class Action(Protocol):
     """
@@ -39,4 +39,8 @@ class UsePower(Action):
 
 @dataclass(frozen=True, slots=True)
 class CallKaboom(Action):
+    actor_id: int
+
+@dataclass(frozen=True, slots=True)
+class CloseReaction(Action):
     actor_id: int

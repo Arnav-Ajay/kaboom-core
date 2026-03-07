@@ -1,3 +1,4 @@
+# kaboom/powers/__init__.py
 from .see_self import SeeSelfPower
 from .see_other import SeeOtherPower
 from .blind_swap import BlindSwapPower

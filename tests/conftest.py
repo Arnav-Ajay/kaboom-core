@@ -1,8 +1,8 @@
-# kaboom/tests/conftest.py
+# tests/conftest.py
 import pytest
-from kaboom.cards import Card, Rank, Suit
-from kaboom.players import Player
-from kaboom.game import GameState
+from kaboom.cards.card import Card, Rank, Suit
+from kaboom.players.player import Player
+from kaboom.game.game_state import GameState
 
 @pytest.fixture
 def simple_game_state():
@@ -32,5 +32,9 @@ def simple_game_state():
         deck=[
             Card(Rank.SEVEN, Suit.CLUBS),
             Card(Rank.FIVE, Suit.HEARTS),  # drawn first
+        ],
+        discard_pile=[
+            Card(Rank.TEN, Suit.CLUBS),
+            Card(Rank.J, Suit.HEARTS), 
         ],
     )

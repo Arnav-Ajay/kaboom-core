@@ -1,9 +1,9 @@
+# tests/test_powers.py
 from kaboom.cards.card import Card, Rank, Suit
-from kaboom.players import Player
-from kaboom.game import GameState
+from kaboom.players.player import Player
+from kaboom.game.game_state import GameState
+from kaboom.game.actions import  Draw, UsePower
 from kaboom.game.turn import apply_action
-from kaboom.game.actions import Draw, UsePower
-
 
 def test_see_self_power():
     state = GameState(
@@ -109,9 +109,9 @@ def test_see_and_swap_power():
     )
 
     # Must have seen both
-    assert (0, 0) in state.players[0].memory
-    assert (1, 0) in state.players[0].memory
+    assert (0, 0) in state.resolve_player(0).memory
+    assert (1, 0) in state.resolve_player(0).memory
 
     # Must have swapped
-    assert state.players[0].hand[0].rank == Rank.K
-    assert state.players[1].hand[0].rank == Rank.A
+    assert state.resolve_player(0).hand[0].rank == Rank.K
+    assert state.resolve_player(1).hand[0].rank == Rank.A

@@ -1,7 +1,6 @@
 # kaboom/game/turn.py
 from __future__ import annotations
 
-from kaboom.cards import Card
 from kaboom.exceptions import InvalidActionError
 from kaboom.game.actions import (
     Action,
@@ -10,8 +9,10 @@ from kaboom.game.actions import (
     Replace,
     UsePower,
     CallKaboom,
+    CloseReaction,
 )
 from kaboom.game.game_state import GameState
+from kaboom.game.validators import validate_index, validate_turn
 from kaboom.powers.registry import POWER_REGISTRY
 
 def _validate_turn_owner(state: GameState, actor_id: int) -> None:
@@ -37,8 +38,7 @@ def _replace(state: GameState, action: Replace) -> None:
 
     player = state.current_player()
 
-    if action.target_index < 0 or action.target_index >= len(player.hand):
-        raise InvalidActionError("Invalid hand index.")
+    validate_index(len(player.hand), action.target_index, "target_index")
 
     replaced = player.hand[action.target_index]
     state.discard_pile.append(replaced)
@@ -70,6 +70,9 @@ def _discard(state: GameState, action: Discard) -> None:
 def _use_power(state: GameState, action: UsePower) -> None:
     card = action.source_card
 
+    if state.drawn_card is None:
+        raise InvalidActionError("No drawn card to use power with.")
+
     if state.drawn_card != card:
         raise InvalidActionError("Power must use drawn card.")
 
@@ -94,13 +97,37 @@ def _call_kaboom(state: GameState, action: CallKaboom) -> None:
     player.active = False
     player.revealed = True
 
+def _close_reaction(state: GameState, action: CloseReaction) -> None:
+    state.reaction_open = False
+    state.reaction_rank = None
+    state.reaction_initiator = None
 
 def apply_action(state: GameState, action: Action) -> None:
     """
     Apply a validated action to the game state.
     """
-    _validate_turn_owner(state, action.actor_id)
 
+    # ------------------------------------------------
+    # Reaction resolution path (bypass turn rules)
+    # ------------------------------------------------
+    if isinstance(action, CloseReaction):
+        if not state.reaction_open:
+            raise InvalidActionError("No reaction to close")
+
+        _close_reaction(state, action)
+        state.advance_turn()
+        return
+    
+    # ------------------------------------------------
+    # Normal turn validation
+    # ------------------------------------------------
+    _validate_turn_owner(state, action.actor_id)
+    validate_turn(state, action.actor_id)
+
+    # ------------------------------------------------
+    # Turn actions
+    # ------------------------------------------------
+    
     if isinstance(action, Draw):
         _draw(state, action)
 
@@ -115,6 +142,6 @@ def apply_action(state: GameState, action: Action) -> None:
 
     elif isinstance(action, CallKaboom):
         _call_kaboom(state, action)
-
+    
     else:
         raise InvalidActionError(f"Unknown action type: {type(action)}")

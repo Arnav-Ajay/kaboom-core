@@ -1,3 +1,4 @@
+# kaboom/powers/see_other.py
 from kaboom.game.actions import UsePower
 from kaboom.powers.base import Power
 from kaboom.cards.card import Rank
@@ -12,7 +13,7 @@ class SeeSelfPower(Power):
 
     def apply(self, state: GameState, action: UsePower) -> None:
         idx = action.target_card_index
-        player = state.players[action.actor_id]
+        player = state.resolve_player(action.actor_id)
         card = player.hand[idx]
         player.remember(action.actor_id, idx, card)
 

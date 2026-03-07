@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from kaboom.cards.card import Card
 from kaboom.players.player import Player
-
+from kaboom.exceptions import InvalidActionError
 
 @dataclass(slots=True)
 class GameState:
@@ -56,3 +56,9 @@ class GameState:
 
     def top_discard(self) -> Optional[Card]:
         return self.discard_pile[-1] if self.discard_pile else None
+    
+    def resolve_player(self, player_id: int) -> Player:
+        for p in self.players:
+            if p.id == player_id:
+                return p
+        raise InvalidActionError("Unknown player_id")

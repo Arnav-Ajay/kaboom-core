@@ -1,8 +1,8 @@
-# kaboom/tests/test_endgame.py
+# tests/test_endgame.py
 import pytest
 
-from kaboom.game import apply_action
-from kaboom.game import Draw, Discard, CallKaboom
+from kaboom.game.turn import apply_action
+from kaboom.game.actions import Draw, Discard, CallKaboom, CloseReaction
 from kaboom.exceptions import InvalidActionError
 
 
@@ -15,12 +15,14 @@ def test_call_kaboom_marks_player_inactive(simple_game_state):
     # Advance to round 2
     apply_action(simple_game_state, Draw(actor_id=0))
     apply_action(simple_game_state, Discard(actor_id=0))
+    apply_action(simple_game_state, CloseReaction(actor_id=0))
     apply_action(simple_game_state, Draw(actor_id=1))
     apply_action(simple_game_state, Discard(actor_id=1))
+    apply_action(simple_game_state, CloseReaction(actor_id=1))
 
     apply_action(simple_game_state, CallKaboom(actor_id=0))
 
-    player = simple_game_state.players[0]
+    player = simple_game_state.resolve_player(0)
     assert player.active is False
     assert player.revealed is True
     assert simple_game_state.kaboom_called_by == 0

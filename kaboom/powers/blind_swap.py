@@ -1,3 +1,4 @@
+# kaboom/powers/blind_swap.py
 from kaboom.game.actions import UsePower
 from kaboom.powers.base import Power
 from kaboom.cards.card import Rank
@@ -11,8 +12,8 @@ class BlindSwapPower(Power):
         return card.rank in self.VALID_RANKS
 
     def apply(self, state: GameState, action: UsePower) -> None:
-        actor = state.players[action.actor_id]
-        target = state.players[action.target_player_id]
+        actor = state.resolve_player(action.actor_id)
+        target = state.resolve_player(action.target_player_id)
 
         actor.hand[action.target_card_index], target.hand[
             action.second_target_card_index

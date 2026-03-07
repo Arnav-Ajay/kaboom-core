@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, List
 
-from kaboom.cards.card import Card
 from kaboom.exceptions import InvalidActionError
 from kaboom.game.game_state import GameState
 
@@ -24,13 +23,13 @@ def _apply_penalty(state: GameState, actor_id: int) -> ReactionResult:
         raise InvalidActionError("Deck empty during penalty.")
 
     penalty_card = state.deck.pop()
-    state.players[actor_id].hand.append(penalty_card)
+    state.resolve_player(actor_id).hand.append(penalty_card)
 
     _close_reaction(state)
     return ReactionResult(success=False, penalty_applied=True)
 
 def _check_instant_win(state: GameState, actor_id: int) -> ReactionResult:
-    if not state.players[actor_id].hand:
+    if not state.resolve_player(actor_id).hand:
         state.instant_winner = actor_id
         return ReactionResult(success=True, instant_win_player=actor_id)
 
@@ -44,7 +43,7 @@ def react_discard_own_card(
     if not state.reaction_open:
         raise InvalidActionError("No active reaction window.")
 
-    player = state.players[actor_id]
+    player = state.resolve_player(actor_id)
 
     if card_index < 0 or card_index >= len(player.hand):
         raise InvalidActionError("Invalid card index.")
@@ -71,8 +70,8 @@ def react_discard_other_card(
     if not state.reaction_open:
         raise InvalidActionError("No active reaction window.")
 
-    actor = state.players[actor_id]
-    target = state.players[target_player_id]
+    actor = state.resolve_player(actor_id)
+    target = state.resolve_player(target_player_id)
 
     if not actor.hand:
         raise InvalidActionError("Actor must have a card to give.")
@@ -104,7 +103,7 @@ def react_discard_own_cards(
     if not card_indices:
         raise InvalidActionError("Must discard at least one card.")
 
-    player = state.players[actor_id]
+    player = state.resolve_player(actor_id)
 
     # Validate indices
     if any(i < 0 or i >= len(player.hand) for i in card_indices):
@@ -123,8 +122,6 @@ def react_discard_own_cards(
     _close_reaction(state)
     return _check_instant_win(state, actor_id)
 
-
-
 def react_discard_other_cards(
     state: GameState,
     actor_id: int,
@@ -138,8 +135,8 @@ def react_discard_other_cards(
     if len(target_card_indices) != len(give_card_indices):
         raise InvalidActionError("Must give one card per stolen card.")
 
-    actor = state.players[actor_id]
-    target = state.players[target_player_id]
+    actor = state.resolve_player(actor_id)
+    target = state.resolve_player(target_player_id)
 
     if len(actor.hand) < len(give_card_indices):
         raise InvalidActionError("Not enough cards to give.")
@@ -161,4 +158,3 @@ def react_discard_other_cards(
 
     _close_reaction(state)
     return ReactionResult(success=True)
-

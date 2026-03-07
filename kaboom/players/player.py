@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Tuple
 
 from kaboom.cards.card import Card
 
