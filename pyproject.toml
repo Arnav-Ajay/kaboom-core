@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Core game engine for the Kaboom card game."
 authors = [{name="Arnav Ajay"}]
 readme = "README.md"
+license = {file = "LICENSE"}
+
 requires-python = ">=3.10"
 
 dependencies = []

@@ -1,4 +1,9 @@
+
 # Kaboom Engine
+![PyPI](https://img.shields.io/pypi/v/kaboom-engine) 
+![Python](https://img.shields.io/badge/python-3.10+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 
 A deterministic Python engine for the **Kaboom card game**.
 
@@ -30,7 +35,10 @@ The engine is designed so it can be used for:
 
 # Installation
 
-Clone the repository:
+```bash
+pip install kaboom-engine
+```
+OR Clone the repository:
 
 ```bash
 git clone https://github.com/Arnav-Ajay/kaboom-core.git
