@@ -14,6 +14,9 @@ from kaboom.game.actions import (
 from kaboom.game.game_state import GameState
 from kaboom.game.validators import validate_index, validate_turn
 from kaboom.powers.registry import POWER_REGISTRY
+from kaboom.game.reaction import close_reaction
+from kaboom.game.results import ActionResult
+from kaboom.game.phases import GamePhase
 
 def _validate_turn_owner(state: GameState, actor_id: int) -> None:
     current = state.current_player()
@@ -24,13 +27,17 @@ def _validate_turn_owner(state: GameState, actor_id: int) -> None:
 
 
 def _draw(state: GameState, action: Draw) -> None:
+
     if state.drawn_card is not None:
         raise InvalidActionError("Already holding a drawn card.")
+
+    state.ensure_deck()
 
     if not state.deck:
         raise InvalidActionError("Deck is empty.")
 
     state.drawn_card = state.deck.pop()
+    state.phase = GamePhase.TURN_RESOLVE
 
 def _replace(state: GameState, action: Replace) -> None:
     if state.drawn_card is None:
@@ -50,6 +57,7 @@ def _replace(state: GameState, action: Replace) -> None:
     state.reaction_rank = replaced.rank.value
     state.reaction_initiator = player.id
     state.reaction_open = True
+    state.phase = GamePhase.REACTION
 
     state.advance_turn()
 
@@ -64,6 +72,7 @@ def _discard(state: GameState, action: Discard) -> None:
     state.reaction_rank = discarded.rank.value
     state.reaction_initiator = action.actor_id
     state.reaction_open = True
+    state.phase = GamePhase.REACTION
 
     state.advance_turn()
 
@@ -97,12 +106,7 @@ def _call_kaboom(state: GameState, action: CallKaboom) -> None:
     player.active = False
     player.revealed = True
 
-def _close_reaction(state: GameState, action: CloseReaction) -> None:
-    state.reaction_open = False
-    state.reaction_rank = None
-    state.reaction_initiator = None
-
-def apply_action(state: GameState, action: Action) -> None:
+def apply_action(state: GameState, action: Action) -> ActionResult:
     """
     Apply a validated action to the game state.
     """
@@ -111,18 +115,30 @@ def apply_action(state: GameState, action: Action) -> None:
     # Reaction resolution path (bypass turn rules)
     # ------------------------------------------------
     if isinstance(action, CloseReaction):
-        if not state.reaction_open:
-            raise InvalidActionError("No reaction to close")
-
-        _close_reaction(state, action)
-        # state.advance_turn()
-        return
+        close_reaction(state)
+        return ActionResult("close_reaction", action.actor_id, reaction_closed=True, instant_winner=state.instant_winner)
     
     # ------------------------------------------------
     # Normal turn validation
     # ------------------------------------------------
+    if state.reaction_open:
+        raise InvalidActionError("Reaction window open.")
     _validate_turn_owner(state, action.actor_id)
     validate_turn(state, action.actor_id)
+
+    phase = state.phase
+    
+    if phase == GamePhase.REACTION and not isinstance(action, CloseReaction):
+        raise InvalidActionError("Must resolve reaction first.")
+    
+    if phase == GamePhase.TURN_DRAW and not (isinstance(action, Draw) or isinstance(action, CallKaboom)):
+        raise InvalidActionError("Must draw first.")
+    
+    if phase == GamePhase.TURN_RESOLVE and isinstance(action, Draw):
+        raise InvalidActionError("Already drawn this turn.")
+    
+    if state.phase == GamePhase.GAME_OVER:
+        raise InvalidActionError("Game is already over.")
 
     # ------------------------------------------------
     # Turn actions
@@ -130,18 +146,23 @@ def apply_action(state: GameState, action: Action) -> None:
     
     if isinstance(action, Draw):
         _draw(state, action)
+        return ActionResult("draw", action.actor_id)
 
     elif isinstance(action, Replace):
         _replace(state, action)
+        return ActionResult("replace", action.actor_id, reaction_opened=True)
 
     elif isinstance(action, Discard):
         _discard(state, action)
+        return ActionResult("discard", action.actor_id, reaction_opened=True)
 
     elif isinstance(action, UsePower):
         _use_power(state, action)
+        return ActionResult("use_power", action.actor_id)
 
     elif isinstance(action, CallKaboom):
         _call_kaboom(state, action)
+        return ActionResult("call_kaboom", action.actor_id)
     
     else:
         raise InvalidActionError(f"Unknown action type: {type(action)}")

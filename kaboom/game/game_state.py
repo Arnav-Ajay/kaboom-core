@@ -1,5 +1,6 @@
 # kaboom/game/game_state.py
 from __future__ import annotations
+import random
 
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -7,6 +8,7 @@ from typing import List, Optional
 from kaboom.cards.card import Card
 from kaboom.players.player import Player
 from kaboom.exceptions import InvalidActionError
+from kaboom.game.phases import GamePhase
 
 @dataclass(slots=True)
 class GameState:
@@ -16,6 +18,7 @@ class GameState:
     players: List[Player]
     deck: List[Card]
     discard_pile: List[Card] = field(default_factory=list)
+    phase: GamePhase = GamePhase.TURN_DRAW
 
     current_player_index: int = 0
     round_number: int = 1
@@ -38,17 +41,47 @@ class GameState:
     def current_player(self) -> Player:
         return self.players[self.current_player_index]
 
+    # def advance_turn(self) -> None:
+    #     """
+    #     Move to next active player.
+    #     """
+    #     if self.kaboom_called_by is not None:
+    #         return
+
+    #     n = len(self.players)
+    #     for _ in range(n):
+    #         self.current_player_index = (self.current_player_index + 1) % n
+    #         if self.players[self.current_player_index].active:
+    #             break
+
+    #     if self.current_player_index == 0:
+    #         self.round_number += 1
+
     def advance_turn(self) -> None:
         """
-        Move to next active player.
+        Move to next player.
+
+        If Kaboom has been called, remaining players finish the round.
+        When the turn returns to the Kaboom caller, the game ends.
         """
-        if self.kaboom_called_by is not None:
-            return
 
         n = len(self.players)
-        for _ in range(n):
+
+        while True:
             self.current_player_index = (self.current_player_index + 1) % n
-            if self.players[self.current_player_index].active:
+
+            player = self.players[self.current_player_index]
+
+            # If Kaboom was called and we reached the caller again → end game
+            if (
+                self.kaboom_called_by is not None
+                and player.id == self.kaboom_called_by
+            ):
+                self.phase = GamePhase.GAME_OVER
+                return
+
+            # Skip inactive players (kaboom caller is inactive)
+            if player.active:
                 break
 
         if self.current_player_index == 0:
@@ -62,3 +95,20 @@ class GameState:
             if p.id == player_id:
                 return p
         raise InvalidActionError("Unknown player_id")
+
+    def ensure_deck(self) -> None:
+        """
+        Ensure deck has cards.
+        If empty, reshuffle discard pile (except top card).
+        """
+        if self.deck:
+            return
+
+        if len(self.discard_pile) <= 1:
+            raise InvalidActionError("No cards left to reshuffle.")
+
+        top = self.discard_pile.pop()
+        self.deck = self.discard_pile
+        random.shuffle(self.deck)
+
+        self.discard_pile = [top]

@@ -6,6 +6,7 @@ from typing import Optional, List
 
 from kaboom.exceptions import InvalidActionError
 from kaboom.game.game_state import GameState
+from kaboom.game.phases import GamePhase
 
 @dataclass(slots=True)
 class ReactionResult:
@@ -17,7 +18,14 @@ def _close_reaction(state: GameState) -> None:
     state.reaction_open = False
     state.reaction_rank = None
     state.reaction_initiator = None
+    state.phase = GamePhase.TURN_DRAW
 
+def close_reaction(state: GameState) -> None:
+    if not state.reaction_open:
+        raise InvalidActionError("No reaction to close")
+
+    _close_reaction(state)
+    
 def _apply_penalty(state: GameState, actor_id: int) -> ReactionResult:
     if not state.deck:
         raise InvalidActionError("Deck empty during penalty.")
@@ -31,6 +39,7 @@ def _apply_penalty(state: GameState, actor_id: int) -> ReactionResult:
 def _check_instant_win(state: GameState, actor_id: int) -> ReactionResult:
     if not state.resolve_player(actor_id).hand:
         state.instant_winner = actor_id
+        state.phase = GamePhase.GAME_OVER
         return ReactionResult(success=True, instant_win_player=actor_id)
 
     return ReactionResult(success=True)
