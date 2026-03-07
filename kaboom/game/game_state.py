@@ -112,3 +112,23 @@ class GameState:
         random.shuffle(self.deck)
 
         self.discard_pile = [top]
+
+    @classmethod
+    def new_game(cls, players: list[Player], deck: list[Card]) -> GameState:
+        """
+        Create a new game state with initial settings.
+        """
+
+        return cls(
+            players=players,
+            deck=deck,
+            discard_pile=[],
+            current_player_index=0,
+            round_number=1,
+            drawn_card=None,
+            reaction_rank=None,
+            reaction_initiator=None,
+            reaction_open=False,
+            kaboom_called_by=None,
+            instant_winner=None,
+        )

@@ -106,17 +106,56 @@ def _call_kaboom(state: GameState, action: CallKaboom) -> None:
     player.active = False
     player.revealed = True
 
-def apply_action(state: GameState, action: Action) -> ActionResult:
+def is_game_over(state: GameState) -> bool:
+    return state.phase == GamePhase.GAME_OVER
+    
+def get_valid_actions(state: GameState):
+    """
+    Return all valid actions for the current player.
+    Useful for AI agents and simulations.
+    """
+
+    if state.phase == GamePhase.GAME_OVER:
+        return []
+
+    player = state.current_player()
+    actions = []
+
+    if state.phase == GamePhase.REACTION:
+        actions.append(CloseReaction(actor_id=player.id))
+        return actions
+
+    if state.phase == GamePhase.TURN_DRAW:
+        actions.append(Draw(actor_id=player.id))
+
+        if state.round_number > 1:
+            actions.append(CallKaboom(actor_id=player.id))
+
+        return actions
+
+    if state.phase == GamePhase.TURN_RESOLVE:
+        actions.append(Discard(actor_id=player.id))
+
+        for i in range(len(player.hand)):
+            actions.append(Replace(actor_id=player.id, target_index=i))
+
+        return actions
+
+    return actions
+
+def apply_action(state: GameState, action: Action) -> list[ActionResult]:
     """
     Apply a validated action to the game state.
     """
-
+    if state.phase == GamePhase.GAME_OVER:
+        raise InvalidActionError("Game is already over.")
+    
     # ------------------------------------------------
     # Reaction resolution path (bypass turn rules)
     # ------------------------------------------------
     if isinstance(action, CloseReaction):
         close_reaction(state)
-        return ActionResult("close_reaction", action.actor_id, reaction_closed=True, instant_winner=state.instant_winner)
+        return [ActionResult("close_reaction", action.actor_id, reaction_closed=True, instant_winner=state.instant_winner)]
     
     # ------------------------------------------------
     # Normal turn validation
@@ -136,9 +175,6 @@ def apply_action(state: GameState, action: Action) -> ActionResult:
     
     if phase == GamePhase.TURN_RESOLVE and isinstance(action, Draw):
         raise InvalidActionError("Already drawn this turn.")
-    
-    if state.phase == GamePhase.GAME_OVER:
-        raise InvalidActionError("Game is already over.")
 
     # ------------------------------------------------
     # Turn actions
@@ -146,23 +182,23 @@ def apply_action(state: GameState, action: Action) -> ActionResult:
     
     if isinstance(action, Draw):
         _draw(state, action)
-        return ActionResult("draw", action.actor_id)
+        return [ActionResult("draw", action.actor_id)]
 
     elif isinstance(action, Replace):
         _replace(state, action)
-        return ActionResult("replace", action.actor_id, reaction_opened=True)
+        return [ActionResult("replace", action.actor_id, reaction_opened=True)]
 
     elif isinstance(action, Discard):
         _discard(state, action)
-        return ActionResult("discard", action.actor_id, reaction_opened=True)
+        return [ActionResult("discard", action.actor_id, reaction_opened=True)]
 
     elif isinstance(action, UsePower):
         _use_power(state, action)
-        return ActionResult("use_power", action.actor_id)
+        return [ActionResult("use_power", action.actor_id)]
 
     elif isinstance(action, CallKaboom):
         _call_kaboom(state, action)
-        return ActionResult("call_kaboom", action.actor_id)
+        return [ActionResult("call_kaboom", action.actor_id)]
     
     else:
         raise InvalidActionError(f"Unknown action type: {type(action)}")
