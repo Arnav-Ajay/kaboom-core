@@ -115,7 +115,7 @@ def apply_action(state: GameState, action: Action) -> None:
             raise InvalidActionError("No reaction to close")
 
         _close_reaction(state, action)
-        state.advance_turn()
+        # state.advance_turn()
         return
     
     # ------------------------------------------------
