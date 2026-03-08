@@ -1,2 +1,9 @@
 # kaboom/version.py
-__version__ = "0.1.0"
+"""
+Package version.
+
+Single source of truth for kaboom versioning.
+Used by packaging and exposed as kaboom.__version__.
+"""
+
+__version__ = "0.2.0"

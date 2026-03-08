@@ -1,30 +1,20 @@
 # kaboom/game/reaction.py
 from __future__ import annotations
+from typing import List
 
-from dataclasses import dataclass
-from typing import Optional, List
-
-from kaboom.exceptions import InvalidActionError
-from kaboom.game.game_state import GameState
-from kaboom.game.phases import GamePhase
-
-@dataclass(slots=True)
-class ReactionResult:
-    success: bool
-    penalty_applied: bool = False
-    instant_win_player: Optional[int] = None
-
-def _close_reaction(state: GameState) -> None:
-    state.reaction_open = False
-    state.reaction_rank = None
-    state.reaction_initiator = None
-    state.phase = GamePhase.TURN_DRAW
+from ..exceptions import InvalidActionError
+from .game_state import GameState
+from .phases import GamePhase
+from .results import ReactionResult
 
 def close_reaction(state: GameState) -> None:
     if not state.reaction_open:
         raise InvalidActionError("No reaction to close")
-
-    _close_reaction(state)
+    
+    state.reaction_open = False
+    state.reaction_rank = None
+    state.reaction_initiator = None
+    state.phase = GamePhase.TURN_DRAW
     
 def _apply_penalty(state: GameState, actor_id: int) -> ReactionResult:
     if not state.deck:
@@ -33,7 +23,7 @@ def _apply_penalty(state: GameState, actor_id: int) -> ReactionResult:
     penalty_card = state.deck.pop()
     state.resolve_player(actor_id).hand.append(penalty_card)
 
-    _close_reaction(state)
+    close_reaction(state)
     return ReactionResult(success=False, penalty_applied=True)
 
 def _check_instant_win(state: GameState, actor_id: int) -> ReactionResult:
@@ -66,7 +56,7 @@ def react_discard_own_card(
     discarded = player.hand.pop(card_index)
     state.discard_pile.append(discarded)
 
-    _close_reaction(state)
+    close_reaction(state)
     return _check_instant_win(state, actor_id)
 
 def react_discard_other_card(
@@ -98,7 +88,7 @@ def react_discard_other_card(
     given = actor.hand.pop(give_card_index)
     target.hand.append(given)
 
-    _close_reaction(state)
+    close_reaction(state)
     return ReactionResult(success=True)
 
 def react_discard_own_cards(
@@ -128,7 +118,7 @@ def react_discard_own_cards(
         discarded = player.hand.pop(i)
         state.discard_pile.append(discarded)
 
-    _close_reaction(state)
+    close_reaction(state)
     return _check_instant_win(state, actor_id)
 
 def react_discard_other_cards(
@@ -165,5 +155,5 @@ def react_discard_other_cards(
         given = actor.hand.pop(i)
         target.hand.append(given)
 
-    _close_reaction(state)
+    close_reaction(state)
     return ReactionResult(success=True)

@@ -1,8 +1,8 @@
 # kaboom/game/turn.py
 from __future__ import annotations
 
-from kaboom.exceptions import InvalidActionError
-from kaboom.game.actions import (
+from ..exceptions import InvalidActionError
+from .actions import (
     Action,
     Draw,
     Discard,
@@ -10,21 +10,23 @@ from kaboom.game.actions import (
     UsePower,
     CallKaboom,
     CloseReaction,
-)
-from kaboom.game.game_state import GameState
-from kaboom.game.validators import validate_index, validate_turn
-from kaboom.powers.registry import POWER_REGISTRY
-from kaboom.game.reaction import close_reaction
-from kaboom.game.results import ActionResult
-from kaboom.game.phases import GamePhase
-
-def _validate_turn_owner(state: GameState, actor_id: int) -> None:
-    current = state.current_player()
-    if current.id != actor_id:
-        raise InvalidActionError("Not this player's turn.")
-    if not current.active:
-        raise InvalidActionError("Inactive player cannot act.")
-
+    ReactDiscardOwnCard,
+    ReactDiscardOwnCards,
+    ReactDiscardOtherCard,
+    ReactDiscardOtherCards
+    )
+from .reaction import (
+    close_reaction,
+    react_discard_own_card,
+    react_discard_own_cards,
+    react_discard_other_card,
+    react_discard_other_cards
+    )
+from .game_state import GameState
+from .validators import validate_turn_owner, validate_index, validate_turn, validate_use_power_payload
+from ..powers.registry import POWER_REGISTRY
+from .results import ActionResult
+from .phases import GamePhase
 
 def _draw(state: GameState, action: Draw) -> None:
 
@@ -53,7 +55,7 @@ def _replace(state: GameState, action: Replace) -> None:
     player.hand[action.target_index] = state.drawn_card
     state.drawn_card = None
 
-    # Open reaction window
+    # Open reaction window (phase switches to REACTION)
     state.reaction_rank = replaced.rank.value
     state.reaction_initiator = player.id
     state.reaction_open = True
@@ -85,16 +87,16 @@ def _use_power(state: GameState, action: UsePower) -> None:
     if state.drawn_card != card:
         raise InvalidActionError("Power must use drawn card.")
 
-    for power in POWER_REGISTRY:
-        if power.can_apply(state, action.actor_id, card):
-            power.apply(state, action)
-            break
-    else:
-        raise InvalidActionError("No valid power for this card.")
+    power = POWER_REGISTRY[action.power_name]
+    if not power.can_apply(state, action.actor_id, card):
+        raise InvalidActionError("Power cannot be applied for this card.")
+    power.apply(state, action)
 
     state.discard_pile.append(card)
     state.drawn_card = None
     state.advance_turn()
+    # after a power use the turn should reset to DRAW for the next player
+    state.phase = GamePhase.TURN_DRAW
 
 def _call_kaboom(state: GameState, action: CallKaboom) -> None:
     if state.round_number <= 1:
@@ -106,43 +108,6 @@ def _call_kaboom(state: GameState, action: CallKaboom) -> None:
     player.active = False
     player.revealed = True
 
-def is_game_over(state: GameState) -> bool:
-    return state.phase == GamePhase.GAME_OVER
-    
-def get_valid_actions(state: GameState):
-    """
-    Return all valid actions for the current player.
-    Useful for AI agents and simulations.
-    """
-
-    if state.phase == GamePhase.GAME_OVER:
-        return []
-
-    player = state.current_player()
-    actions = []
-
-    if state.phase == GamePhase.REACTION:
-        actions.append(CloseReaction(actor_id=player.id))
-        return actions
-
-    if state.phase == GamePhase.TURN_DRAW:
-        actions.append(Draw(actor_id=player.id))
-
-        if state.round_number > 1:
-            actions.append(CallKaboom(actor_id=player.id))
-
-        return actions
-
-    if state.phase == GamePhase.TURN_RESOLVE:
-        actions.append(Discard(actor_id=player.id))
-
-        for i in range(len(player.hand)):
-            actions.append(Replace(actor_id=player.id, target_index=i))
-
-        return actions
-
-    return actions
-
 def apply_action(state: GameState, action: Action) -> list[ActionResult]:
     """
     Apply a validated action to the game state.
@@ -153,26 +118,74 @@ def apply_action(state: GameState, action: Action) -> list[ActionResult]:
     # ------------------------------------------------
     # Reaction resolution path (bypass turn rules)
     # ------------------------------------------------
-    if isinstance(action, CloseReaction):
+
+    if isinstance(action, ReactDiscardOwnCard):
+        result = react_discard_own_card(state, action.actor_id, action.card_index)
+        return [result]
+
+    elif isinstance(action, ReactDiscardOwnCards):
+        result = react_discard_own_cards(state, action.actor_id, action.card_indices)
+        return [result]
+
+    elif isinstance(action, ReactDiscardOtherCard):
+        result = react_discard_other_card(
+            state,
+            action.actor_id,
+            action.target_player_id,
+            action.target_card_index,
+            action.give_card_index,
+        )
+        return [result]
+
+    elif isinstance(action, ReactDiscardOtherCards):
+        result = react_discard_other_cards(
+            state,
+            action.actor_id,
+            action.target_player_id,
+            action.target_card_indices,
+            action.give_card_indices,
+        )
+        return [result]
+
+    elif isinstance(action, CloseReaction):
         close_reaction(state)
-        return [ActionResult("close_reaction", action.actor_id, reaction_closed=True, instant_winner=state.instant_winner)]
-    
+        return [
+            ActionResult(
+                "close_reaction",
+                action.actor_id,
+                reaction_closed=True,
+                instant_winner=state.instant_winner,
+            )
+        ]
+
     # ------------------------------------------------
     # Normal turn validation
     # ------------------------------------------------
-    if state.reaction_open:
+    if state.reaction_open and not isinstance(
+        action,
+        (
+            CloseReaction,
+            ReactDiscardOwnCard,
+            ReactDiscardOwnCards,
+            ReactDiscardOtherCard,
+            ReactDiscardOtherCards,
+        ),
+    ):
         raise InvalidActionError("Reaction window open.")
-    _validate_turn_owner(state, action.actor_id)
-    validate_turn(state, action.actor_id)
+
+    validate_turn_owner(state, action.actor_id)
+    validate_turn(state)
+    if isinstance(action, UsePower):
+        validate_use_power_payload(action)
 
     phase = state.phase
-    
+
     if phase == GamePhase.REACTION and not isinstance(action, CloseReaction):
         raise InvalidActionError("Must resolve reaction first.")
-    
+
     if phase == GamePhase.TURN_DRAW and not (isinstance(action, Draw) or isinstance(action, CallKaboom)):
         raise InvalidActionError("Must draw first.")
-    
+
     if phase == GamePhase.TURN_RESOLVE and isinstance(action, Draw):
         raise InvalidActionError("Already drawn this turn.")
 
@@ -182,7 +195,7 @@ def apply_action(state: GameState, action: Action) -> list[ActionResult]:
     
     if isinstance(action, Draw):
         _draw(state, action)
-        return [ActionResult("draw", action.actor_id)]
+        return [ActionResult("draw", action.actor_id, card=state.drawn_card)]
 
     elif isinstance(action, Replace):
         _replace(state, action)

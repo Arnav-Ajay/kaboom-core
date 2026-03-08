@@ -1,11 +1,7 @@
-
 # Kaboom Engine
 ![PyPI](https://img.shields.io/pypi/v/kaboom-engine) 
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-
-
-A deterministic Python engine for the **Kaboom card game**.
 
 The project implements the full game logic including turns, reactions, powers, and endgame rules, designed to be used as a reusable **simulation engine, AI environment, or UI backend**.
 
@@ -19,6 +15,7 @@ The project implements the full game logic including turns, reactions, powers, a
 * Card power mechanics
 * Kaboom endgame logic
 * Deck reshuffle handling
+* Fully enumerated action space
 * Action-based engine architecture
 * Event-based results
 * Fully tested core logic
@@ -37,8 +34,9 @@ The engine is designed so it can be used for:
 
 ```bash
 pip install kaboom-engine
-```
-OR Clone the repository:
+````
+
+OR clone the repository:
 
 ```bash
 git clone https://github.com/Arnav-Ajay/kaboom-core.git
@@ -56,66 +54,102 @@ pip install -e .
 # Basic Usage
 
 ```python
-from kaboom import GameState, apply_action
-from kaboom.game.actions import Draw, Discard
+from kaboom.game.engine import GameEngine
 
-state = GameState.new_game()
+engine = GameEngine(game_id=0, num_players=4, hand_size=4)
+state = engine.state
 
-apply_action(state, Draw(actor_id=0))
-apply_action(state, Discard(actor_id=0))
+players = state.players
+current_player = state.current_player()
+
+# draw a card
+engine.draw_card(current_player.id)
+
+# discard
+engine.discard_card(current_player.id)
 ```
 
 ---
 
 # Running Simulations
 
-The engine supports automated play.
+The engine exposes the **complete legal action space** of the current game state.
 
 ```python
 import random
-from kaboom import GameState, apply_action
-from kaboom.game.turn import get_valid_actions
 
-state = GameState.new_game()
+from kaboom.game.engine import GameEngine
+from kaboom.game.turn import apply_action
+from kaboom.game.validators import get_valid_actions
 
-while True:
+engine = GameEngine(game_id=0, num_players=2, hand_size=4)
+state = engine.state
+
+while state.phase != GamePhase.GAME_OVER:
+
+    player = state.current_player()
+
+    # skip inactive players (kaboom caller)
+    if not player.active:
+        state.advance_turn()
+        continue
+
     actions = get_valid_actions(state)
 
     if not actions:
         break
 
     action = random.choice(actions)
-    apply_action(state, action)
-```
 
-This allows thousands of games to be simulated for testing or AI training.
+    apply_action(state, action)
+    
+```
 
 ---
 
 # Architecture
 
-The engine follows a modular architecture:
+The engine follows a modular architecture based on **action execution**.
 
 ```
 GameState
     |
-Action (Draw / Discard / Replace / UsePower / CallKaboom)
+Action
+    | (Draw / Discard / Replace / UsePower / CallKaboom / Reaction Actions)
     |
 apply_action()
     |
 ActionResult
 ```
 
-Key components:
+---
+
+# Action System
+
+All player interactions are represented as **Action objects**.
+
+Core actions include:
 
 ```
-kaboom/cards      → card definitions
-kaboom/players    → player state
-kaboom/powers     → power system
-kaboom/game       → turn engine, reactions, validators
+Draw
+Discard
+Replace
+UsePower
+CallKaboom
+CloseReaction
+ReactDiscardOwnCard
+ReactDiscardOwnCards
+ReactDiscardOtherCard
+ReactDiscardOtherCards
 ```
 
-This separation keeps game logic independent from any UI layer.
+The function:
+
+```
+get_valid_actions(state)
+```
+
+returns the full list of legal actions for the current state.
 
 ---
 
@@ -136,6 +170,16 @@ kaboom/
         validators.py
 
 tests/
+examples/
+```
+
+Key modules:
+
+```
+kaboom/cards      → card definitions
+kaboom/players    → player state and memory
+kaboom/powers     → card power implementations
+kaboom/game       → engine logic, actions, validation
 ```
 
 ---
@@ -150,7 +194,7 @@ Run tests:
 pytest
 ```
 
-Current coverage includes:
+Coverage includes:
 
 * card scoring
 * deck creation
@@ -185,5 +229,3 @@ This project is licensed under the MIT License.
 # Author
 
 [Arnav Ajay](https://github.com/Arnav-Ajay)
-
----

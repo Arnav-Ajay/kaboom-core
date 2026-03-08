@@ -3,8 +3,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, Protocol
+from typing import TYPE_CHECKING
 
-from kaboom.cards.card import Card
+if TYPE_CHECKING:
+    from ..game.actions import PowerType
+
+from ..cards.card import Card
 
 class Action(Protocol):
     """
@@ -28,7 +32,7 @@ class Replace(Action):
 @dataclass(frozen=True, slots=True)
 class UsePower(Action):
     actor_id: int
-    power_name: str
+    power_name: PowerType
     source_card: Card
 
     # Power-specific payload (indices, player ids, etc.)
@@ -44,3 +48,32 @@ class CallKaboom(Action):
 @dataclass(frozen=True, slots=True)
 class CloseReaction(Action):
     actor_id: int
+
+# ---------- Reaction Actions ----------
+
+@dataclass(frozen=True, slots=True)
+class ReactDiscardOwnCard(Action):
+    actor_id: int
+    card_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReactDiscardOwnCards(Action):
+    actor_id: int
+    card_indices: list[int]
+
+
+@dataclass(frozen=True, slots=True)
+class ReactDiscardOtherCard(Action):
+    actor_id: int
+    target_player_id: int
+    target_card_index: int
+    give_card_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReactDiscardOtherCards(Action):
+    actor_id: int
+    target_player_id: int
+    target_card_indices: list[int]
+    give_card_indices: list[int]

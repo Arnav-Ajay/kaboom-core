@@ -5,10 +5,10 @@ import random
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from kaboom.cards.card import Card
-from kaboom.players.player import Player
-from kaboom.exceptions import InvalidActionError
-from kaboom.game.phases import GamePhase
+from ..cards.card import Card, Rank, Suit
+from ..players.player import Player
+from ..exceptions import InvalidActionError
+from .phases import GamePhase
 
 @dataclass(slots=True)
 class GameState:
@@ -19,7 +19,7 @@ class GameState:
     deck: List[Card]
     discard_pile: List[Card] = field(default_factory=list)
     phase: GamePhase = GamePhase.TURN_DRAW
-
+    rng: random.Random = field(default_factory=random.Random)
     current_player_index: int = 0
     round_number: int = 1
 
@@ -40,22 +40,6 @@ class GameState:
 
     def current_player(self) -> Player:
         return self.players[self.current_player_index]
-
-    # def advance_turn(self) -> None:
-    #     """
-    #     Move to next active player.
-    #     """
-    #     if self.kaboom_called_by is not None:
-    #         return
-
-    #     n = len(self.players)
-    #     for _ in range(n):
-    #         self.current_player_index = (self.current_player_index + 1) % n
-    #         if self.players[self.current_player_index].active:
-    #             break
-
-    #     if self.current_player_index == 0:
-    #         self.round_number += 1
 
     def advance_turn(self) -> None:
         """
@@ -109,26 +93,67 @@ class GameState:
 
         top = self.discard_pile.pop()
         self.deck = self.discard_pile
-        random.shuffle(self.deck)
+        self.rng.shuffle(self.deck)
 
         self.discard_pile = [top]
 
-    @classmethod
-    def new_game(cls, players: list[Player], deck: list[Card]) -> GameState:
+    # ---------- reaction helpers ----------
+    def reactable_players(self, exclude_initiator: bool = True) -> list[Player]:
         """
-        Create a new game state with initial settings.
+        Return the list of players who are eligible to react during an open
+        reaction window.  By default the initiator of the reaction is excluded
+        (they never react to their own discard/replace), but the caller can
+        override that behavior for testing.
         """
+        players = [p for p in self.players if p.active]
+        if exclude_initiator and self.reaction_initiator is not None:
+            players = [p for p in players if p.id != self.reaction_initiator]
+        return players
 
-        return cls(
-            players=players,
-            deck=deck,
-            discard_pile=[],
-            current_player_index=0,
-            round_number=1,
-            drawn_card=None,
-            reaction_rank=None,
-            reaction_initiator=None,
-            reaction_open=False,
-            kaboom_called_by=None,
-            instant_winner=None,
-        )
+    def reaction_order(self) -> list[Player]:
+        """
+        Return players in the order in which reaction attempts should be
+        processed.  The rotation starts *after* the initiator and wraps around,
+        skipping inactive players.  If no initiator is set yet, the order is the
+        same as the players list.
+        """
+        players = self.reactable_players(exclude_initiator=False)
+        if self.reaction_initiator is None:
+            return players
+
+        # find index of initiator in the players list
+        ids = [p.id for p in players]
+        if self.reaction_initiator not in ids:
+            return players
+
+        start = ids.index(self.reaction_initiator) + 1
+        # rotate
+        return players[start:] + players[:start]
+
+    # -------- game creation convenience --------
+    @classmethod
+    def new_game(cls, num_players: int, hand_size: int) -> GameState:
+        """Create a fresh game state with random deck and dealt hands.
+
+        This helper centralizes the logic that previously lived in the engine
+        module.  It is suitable for both the engine and external consumers.
+        """
+        # build full deck
+        deck: list[Card] = []
+        for suit in Suit:
+            for rank in Rank:
+                deck.append(Card(rank, suit))
+        rng = random.Random()
+        rng.shuffle(deck)
+
+        # create players
+        players: list[Player] = [Player(id=i, name=f"P{i+1}") for i in range(num_players)]
+
+        # deal cards
+        if len(deck) < hand_size * num_players:
+            raise InvalidActionError("Not enough cards to deal hands")
+        for _ in range(hand_size):
+            for p in players:
+                p.hand.append(deck.pop())
+
+        return cls(players=players, deck=deck)

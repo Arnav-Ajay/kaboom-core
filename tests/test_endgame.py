@@ -3,6 +3,8 @@ import pytest
 
 from kaboom.game.turn import apply_action
 from kaboom.game.actions import Draw, Discard, CallKaboom, CloseReaction
+from kaboom.game.engine import GameEngine
+from kaboom.game.phases import GamePhase
 from kaboom.exceptions import InvalidActionError
 
 
@@ -26,3 +28,19 @@ def test_call_kaboom_marks_player_inactive(simple_game_state):
     assert player.active is False
     assert player.revealed is True
     assert simple_game_state.kaboom_called_by == 0
+
+
+def test_engine_is_game_over_reflects_phase():
+    engine = GameEngine(game_id=0, num_players=2, hand_size=4)
+    assert engine.is_game_over() is False
+
+    engine.state.phase = GamePhase.GAME_OVER
+    assert engine.is_game_over() is True
+
+
+def test_engine_get_winner_prefers_instant_winner():
+    engine = GameEngine(game_id=0, num_players=2, hand_size=4)
+    engine.state.phase = GamePhase.GAME_OVER
+    engine.state.instant_winner = 1
+
+    assert engine.get_winner() == 1

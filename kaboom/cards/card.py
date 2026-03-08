@@ -33,6 +33,9 @@ class Card:
 
     def __str__(self) -> str:
         return f"{self.rank.value}{self.suit.value}"
+
+    def __repr__(self) -> str:
+        return f"Card(rank={self.rank.name}, suit={self.suit.name})"
     
     @property
     def score_value(self) -> int:

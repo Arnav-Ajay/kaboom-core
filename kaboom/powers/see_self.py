@@ -1,8 +1,8 @@
-# kaboom/powers/see_other.py
-from kaboom.game.actions import UsePower
-from kaboom.powers.base import Power
-from kaboom.cards.card import Rank
-from kaboom.game.game_state import GameState
+# kaboom/powers/see_self.py
+from ..game.actions import UsePower
+from .base import Power
+from ..cards.card import Rank
+from ..game.game_state import GameState
 
 
 class SeeSelfPower(Power):

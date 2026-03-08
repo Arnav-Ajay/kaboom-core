@@ -1,11 +1,8 @@
 # kaboom/players/player.py
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
-
-from kaboom.cards.card import Card
-
+from ..cards.card import Card
 
 @dataclass(slots=True)
 class Player:
@@ -24,6 +21,12 @@ class Player:
     active: bool = True      # False after Kaboom call
     revealed: bool = False  # True only at final reveal
 
+    def get_card(self, index: int) -> Card:
+        """
+        Safely return a card from the player's hand without removing it.
+        """
+        return self.hand[index]
+
     def card_count(self) -> int:
         return len(self.hand)
 
@@ -41,6 +44,9 @@ class Player:
         Store knowledge gained via a power.
         """
         self.memory[(player_id, card_index)] = card
+
+    def forget_position(self, player_id, card_index):
+        self.memory.pop((player_id, card_index), None)
 
     def forget_all(self) -> None:
         """
