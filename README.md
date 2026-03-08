@@ -1,24 +1,28 @@
 # Kaboom Engine
-![PyPI](https://img.shields.io/pypi/v/kaboom-engine) 
+![PyPI](https://img.shields.io/pypi/v/kaboom-engine)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-The project implements the full game logic including turns, reactions, powers, and endgame rules, designed to be used as a reusable **simulation engine, AI environment, or UI backend**.
+Kaboom Engine is a deterministic Python engine that implements the full rule system for the Kaboom card game.
+
+The engine is designed as a reusable core that can power command-line interfaces, graphical clients, multiplayer servers, and AI agents.
+
+Published on PyPI as `kaboom-engine`.
 
 ---
 
-# Features
-
-* Complete Kaboom game rules
-* Deterministic turn engine
-* Reaction resolution system
-* Card power mechanics
+## Features
+Game mechanics
+* complete Kaboom rule implementation
+* reaction resolution system
+* card power mechanics
 * Kaboom endgame logic
-* Deck reshuffle handling
-* Fully enumerated action space
-* Action-based engine architecture
-* Event-based results
-* Fully tested core logic
+
+Engine design
+* deterministic turn engine
+* enumerated legal action space
+* action-based architecture
+* event-based results
 
 The engine is designed so it can be used for:
 
@@ -30,7 +34,7 @@ The engine is designed so it can be used for:
 
 ---
 
-# Installation
+## Installation
 
 ```bash
 pip install kaboom-engine
@@ -51,7 +55,7 @@ pip install -e .
 
 ---
 
-# Basic Usage
+## Basic Usage
 
 ```python
 from kaboom.game.engine import GameEngine
@@ -71,14 +75,15 @@ engine.discard_card(current_player.id)
 
 ---
 
-# Running Simulations
+## Running Simulations
 
-The engine exposes the **complete legal action space** of the current game state.
+The engine exposes the **complete legal action space** of the current game state. So, it can be used to run automated simulations or AI agents.
 
 ```python
 import random
 
 from kaboom.game.engine import GameEngine
+from kaboom.game.phases import GamePhase
 from kaboom.game.turn import apply_action
 from kaboom.game.validators import get_valid_actions
 
@@ -107,7 +112,7 @@ while state.phase != GamePhase.GAME_OVER:
 
 ---
 
-# Architecture
+## Architecture
 
 The engine follows a modular architecture based on **action execution**.
 
@@ -124,7 +129,7 @@ ActionResult
 
 ---
 
-# Action System
+## Action System
 
 All player interactions are represented as **Action objects**.
 
@@ -153,7 +158,7 @@ returns the full list of legal actions for the current state.
 
 ---
 
-# Project Structure
+## Project Structure
 
 ```
 kaboom/
@@ -184,7 +189,7 @@ kaboom/game       → engine logic, actions, validation
 
 ---
 
-# Testing
+## Testing
 
 The engine includes a full pytest test suite.
 
@@ -207,7 +212,7 @@ Coverage includes:
 
 ---
 
-# Future Improvements
+## Future Improvements
 
 Planned enhancements:
 
@@ -220,12 +225,12 @@ Planned enhancements:
 
 ---
 
-# License
+## License
 
 This project is licensed under the MIT License.
 
 ---
 
-# Author
+## Author
 
 [Arnav Ajay](https://github.com/Arnav-Ajay)
