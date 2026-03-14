@@ -1,5 +1,6 @@
 # tests/test_start_game_simulation.py
 from kaboom.cards.card import Card, Rank, Suit
+from kaboom.game.phases import GamePhase
 from kaboom.players.player import Player
 from kaboom.game.game_state import GameState
 
@@ -27,10 +28,14 @@ def _assign_hands(players, deck, hand_size=4):
             player.hand.append(deck.pop())
 
 def _see_cards_at_start(state: GameState):
-    # each player can see 2 of their own cards
-    for player in state.players:
-        player.remember(player.id, 0, player.hand[0])
-        player.remember(player.id, 1, player.hand[1])
+    state.phase = GamePhase.OPENING_PEEK
+    state.opening_peek_complete = False
+    state.opening_peek_pending_player_ids = [player.id for player in state.players]
+    state.current_player_index = 0
+    state.apply_opening_peek(0, (0, 1))
+    state.advance_opening_peek()
+    state.apply_opening_peek(1, (0, 1))
+    state.advance_opening_peek()
 
 def test_game_start():
 
@@ -60,3 +65,4 @@ def test_game_start():
     assert len(state.discard_pile) == 0
     assert len(state.players[0].memory) == 2
     assert len(state.players[1].memory) == 2
+    assert state.phase.name == "TURN_DRAW"

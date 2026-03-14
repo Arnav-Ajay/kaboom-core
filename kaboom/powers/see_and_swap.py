@@ -31,19 +31,10 @@ class SeeAndSwapPower(Power):
         p1.hand[action.target_card_index], p2.hand[
             action.second_target_card_index
         ] = c2, c1
-
-        # update memory for all players: cards have swapped between p1 and p2
-        def _shift_mem(player_list, id_a, idx_a, id_b, idx_b):
-            # rebuild memory mapping to reflect swapped positions
-            for pl in player_list:
-                new_mem = {}
-                for (pid, ci), card in pl.memory.items():
-                    if pid == id_a and ci == idx_a:
-                        new_mem[(id_b, idx_b)] = card
-                    elif pid == id_b and ci == idx_b:
-                        new_mem[(id_a, idx_a)] = card
-                    else:
-                        new_mem[(pid, ci)] = card
-                pl.memory = new_mem
-        _shift_mem(state.players, p1.id, action.target_card_index, p2.id, action.second_target_card_index)
+        state.shift_memories_after_swap(
+            p1.id,
+            action.target_card_index,
+            p2.id,
+            action.second_target_card_index,
+        )
 

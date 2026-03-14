@@ -9,20 +9,22 @@
 # * It must be the actor's turn.
 # * No reaction window may be open; reactions are handled separately.
 
+from itertools import combinations
+
 from ..exceptions import InvalidActionError
 from .game_state import GameState
 from .phases import GamePhase
 from .actions import (
+    OpeningPeek,
     Draw,
     Discard,
     Replace,
     UsePower,
     CallKaboom,
     CloseReaction,
+    ResolvePendingPower,
     ReactDiscardOwnCard,
-    ReactDiscardOwnCards,
     ReactDiscardOtherCard,
-    ReactDiscardOtherCards,
 )
 from ..powers.types import PowerType
 from ..powers.registry import get_power_for_card
@@ -62,63 +64,49 @@ def get_valid_actions(state: GameState):
     player = state.current_player()
     actions = []
 
+    if state.phase == GamePhase.OPENING_PEEK:
+        peek_count = state.required_opening_peek_count(player.id)
+        for combo in combinations(range(len(player.hand)), peek_count):
+            actions.append(OpeningPeek(actor_id=player.id, card_indices=combo))
+        if not actions and peek_count == 0:
+            actions.append(OpeningPeek(actor_id=player.id, card_indices=()))
+        return actions
+
     # ------------------------------------------------
     # REACTION PHASE
     # ------------------------------------------------
 
     if state.phase == GamePhase.REACTION:
-        rank = state.reaction_rank
+        if state.pending_power_action is not None:
+            actions.append(ResolvePendingPower(actor_id=state.pending_power_action.actor_id))
 
-        # own-hand reactions
-        own_matches = [
-            i for i, card in enumerate(player.hand)
-            if card.rank.value == rank
-        ]
-
-        if own_matches:
-            for idx in own_matches:
-                actions.append(
-                    ReactDiscardOwnCard(actor_id=player.id, card_index=idx)
-                )
-
-            if len(own_matches) > 1:
-                actions.append(
-                    ReactDiscardOwnCards(actor_id=player.id, card_indices=own_matches)
-                )
-
-        # other-player reactions
-        for target in state.players:
-            if target.id == player.id:
+        for reacting_player in state.reactable_players(exclude_initiator=False):
+            if not state.can_attempt_reaction(reacting_player.id):
                 continue
-
-            target_matches = [
-                i for i, card in enumerate(target.hand)
-                if card.rank.value == rank
-            ]
-
-            for idx in target_matches:
-                for give_idx in range(len(player.hand)):
-                    actions.append(
-                        ReactDiscardOtherCard(
-                            actor_id=player.id,
-                            target_player_id=target.id,
-                            target_card_index=idx,
-                            give_card_index=give_idx,
-                        )
-                    )
-
-            if target_matches and len(player.hand) >= len(target_matches):
-                give_indices = list(range(len(target_matches)))
+            for idx in range(len(reacting_player.hand)):
                 actions.append(
-                    ReactDiscardOtherCards(
-                        actor_id=player.id,
-                        target_player_id=target.id,
-                        target_card_indices=target_matches,
-                        give_card_indices=give_indices,
-                    )
+                    ReactDiscardOwnCard(actor_id=reacting_player.id, card_index=idx)
                 )
 
-        actions.append(CloseReaction(actor_id=player.id))
+            for target in state.players:
+                if target.id == reacting_player.id:
+                    continue
+                if not target.active:
+                    continue
+
+                for idx in range(len(target.hand)):
+                    for give_idx in range(len(reacting_player.hand)):
+                        actions.append(
+                            ReactDiscardOtherCard(
+                                actor_id=reacting_player.id,
+                                target_player_id=target.id,
+                                target_card_index=idx,
+                                give_card_index=give_idx,
+                            )
+                        )
+
+        if state.pending_power_action is None:
+            actions.append(CloseReaction(actor_id=player.id))
         return actions
 
     # ------------------------------------------------
@@ -148,7 +136,7 @@ def get_valid_actions(state: GameState):
 
         # power actions
         if state.drawn_card:
-            power_type = get_power_for_card(state.drawn_card.rank)
+            power_type = get_power_for_card(state.drawn_card)
 
             if power_type:
                 actions.append(
@@ -192,6 +180,10 @@ def validate_use_power_payload(action: UsePower) -> None:
                 f"{name} requires target_player_id, target_card_index, "
                 "second_target_player_id, and second_target_card_index."
             )
+        if action.target_player_id != action.actor_id:
+            raise InvalidActionError(f"{name} must start from the acting player's own card.")
+        if action.second_target_player_id == action.actor_id:
+            raise InvalidActionError(f"{name} must target another player's card as the second card.")
 
     else:
         raise InvalidActionError(f"Unknown power: {name}")

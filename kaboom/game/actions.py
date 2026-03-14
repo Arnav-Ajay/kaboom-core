@@ -6,7 +6,7 @@ from typing import Optional, Protocol
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..game.actions import PowerType
+    from ..powers.types import PowerType
 
 from ..cards.card import Card
 
@@ -15,6 +15,11 @@ class Action(Protocol):
     Marker protocol for all turn actions.
     """
     actor_id: int
+
+@dataclass(frozen=True, slots=True)
+class OpeningPeek(Action):
+    actor_id: int
+    card_indices: tuple[int, ...]
 
 @dataclass(frozen=True, slots=True)
 class Draw(Action):
@@ -49,6 +54,10 @@ class CallKaboom(Action):
 class CloseReaction(Action):
     actor_id: int
 
+@dataclass(frozen=True, slots=True)
+class ResolvePendingPower(Action):
+    actor_id: int
+
 # ---------- Reaction Actions ----------
 
 @dataclass(frozen=True, slots=True)
@@ -56,24 +65,9 @@ class ReactDiscardOwnCard(Action):
     actor_id: int
     card_index: int
 
-
-@dataclass(frozen=True, slots=True)
-class ReactDiscardOwnCards(Action):
-    actor_id: int
-    card_indices: list[int]
-
-
 @dataclass(frozen=True, slots=True)
 class ReactDiscardOtherCard(Action):
     actor_id: int
     target_player_id: int
     target_card_index: int
     give_card_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class ReactDiscardOtherCards(Action):
-    actor_id: int
-    target_player_id: int
-    target_card_indices: list[int]
-    give_card_indices: list[int]

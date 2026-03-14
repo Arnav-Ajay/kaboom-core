@@ -7,8 +7,6 @@ from kaboom.game.turn import apply_action
 from kaboom.game.reaction import (
     react_discard_own_card,
     react_discard_other_card,
-    react_discard_own_cards,
-    react_discard_other_cards,
     ReactionResult,
 )
 from kaboom.game.phases import GamePhase
@@ -51,7 +49,12 @@ def test_reaction_penalty_and_instant_win():
     # player2 attempts wrong reaction -> penalty
     res: ReactionResult = react_discard_own_card(state, actor_id=1, card_index=0)
     assert not res.success and res.penalty_applied
+    assert res.revealed_card.rank == Rank.THREE
+    assert res.target_player_id == 1
+    assert res.target_card_index == 0
     assert len(state.resolve_player(1).hand) == 2
+    assert state.players[0].memory[(1, 0)].rank == Rank.THREE
+    assert state.players[1].memory[(1, 0)].rank == Rank.THREE
 
     # set up scenario for instant win: arrange for the drawn card to match the
     # lone card held by player2 so that a successful reaction empties their hand.

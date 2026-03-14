@@ -1,236 +1,138 @@
 # Kaboom Engine
+
 ![PyPI](https://img.shields.io/pypi/v/kaboom-engine)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Kaboom Engine is a deterministic Python engine that implements the full rule system for the Kaboom card game.
+`kaboom-engine` is the deterministic rules engine for the Kaboom card game.
 
-The engine is designed as a reusable core that can power command-line interfaces, graphical clients, multiplayer servers, and AI agents.
+Current release line: `0.3.0`
 
-Published on PyPI as `kaboom-engine`.
+It is intended to be reused by:
 
----
-
-## Features
-Game mechanics
-* complete Kaboom rule implementation
-* reaction resolution system
-* card power mechanics
-* Kaboom endgame logic
-
-Engine design
-* deterministic turn engine
-* enumerated legal action space
-* action-based architecture
-* event-based results
-
-The engine is designed so it can be used for:
-
-* CLI or graphical game clients
-* AI agents
-* game simulations
+* CLIs
+* simulations and AI agents
 * multiplayer servers
-* reinforcement learning environments
+* future graphical clients
 
----
+## What The Engine Owns
 
-## Installation
+The engine is the source of truth for:
+
+* game setup and dealing
+* mandatory opening peek setup
+* legal action generation
+* turn and reaction phase transitions
+* card powers
+* Kaboom endgame flow
+* player memory mutation when cards move
+
+Interfaces should choose and render actions, not reimplement rules.
+
+## What's New In 0.3.0
+
+`0.3.0` is the first fully rule-shaped engine release.
+
+Highlights:
+
+* opening peek is now an explicit setup phase instead of an implicit side effect
+* power use is discard-first and shares the same contested discard window as reactions
+* pending power resolution is explicit through `ResolvePendingPower`
+* reactions are single-card claims, and the initiator may compete for the same discard event
+* wrong reaction guesses now reveal information, apply penalty, and keep the window open
+* Kaboom final-round discard windows fully resolve before the game ends
+* result metadata is richer for CLI, simulation, and future multiplayer/server layers
+
+## Install
 
 ```bash
 pip install kaboom-engine
-````
+```
 
-OR clone the repository:
+Local editable install:
 
 ```bash
 git clone https://github.com/Arnav-Ajay/kaboom-core.git
 cd kaboom-core
-```
-
-Install locally:
-
-```bash
 pip install -e .
 ```
 
----
-
-## Basic Usage
+## Minimal Usage
 
 ```python
-from kaboom.game.engine import GameEngine
-
-engine = GameEngine(game_id=0, num_players=4, hand_size=4)
-state = engine.state
-
-players = state.players
-current_player = state.current_player()
-
-# draw a card
-engine.draw_card(current_player.id)
-
-# discard
-engine.discard_card(current_player.id)
-```
-
----
-
-## Running Simulations
-
-The engine exposes the **complete legal action space** of the current game state. So, it can be used to run automated simulations or AI agents.
-
-```python
-import random
-
-from kaboom.game.engine import GameEngine
-from kaboom.game.phases import GamePhase
-from kaboom.game.turn import apply_action
-from kaboom.game.validators import get_valid_actions
+from kaboom import GameEngine, get_valid_actions, apply_action
 
 engine = GameEngine(game_id=0, num_players=2, hand_size=4)
 state = engine.state
 
-while state.phase != GamePhase.GAME_OVER:
-
-    player = state.current_player()
-
-    # skip inactive players (kaboom caller)
-    if not player.active:
-        state.advance_turn()
-        continue
-
+while not engine.is_game_over():
     actions = get_valid_actions(state)
-
-    if not actions:
-        break
-
-    action = random.choice(actions)
-
+    action = actions[0]
     apply_action(state, action)
-    
 ```
 
----
+Note:
+
+* a fresh game starts in the opening peek setup phase
+* `get_valid_actions(state)` already exposes the required `OpeningPeek` actions before round 1 begins
+
+## Docs
+
+Reference docs live in [`docs/`](./docs):
+
+* [`GAME_RULES.md`](./docs/GAME_RULES.md)
+* [`ENGINE_FLOW.md`](./docs/ENGINE_FLOW.md)
+* [`GAME_ENGINE_API.md`](./docs/GAME_ENGINE_API.md)
+
+These documents describe:
+
+* state and phase flow
+* action dispatch
+* memory invariants
+* `GameEngine` methods
+* parameters and return types
+* ownership boundaries between engine and UI
+
+## Examples
+
+Two maintained examples live in [`examples/`](./examples):
+
+* [`game_info_demo.py`](./examples/game_info_demo.py) for inspecting setup, memory, and legal actions
+* [`random_policy_simulation.py`](./examples/random_policy_simulation.py) for a simple simulation / AI / RL-style rollout loop
 
 ## Architecture
 
-The engine follows a modular architecture based on **action execution**.
+Core modules:
 
-```
-GameState
-    |
-Action
-    | (Draw / Discard / Replace / UsePower / CallKaboom / Reaction Actions)
-    |
-apply_action()
-    |
-ActionResult
-```
+* [`kaboom/game`](./kaboom/game)
+* [`kaboom/powers`](./kaboom/powers)
+* [`kaboom/players`](./kaboom/players)
+* [`kaboom/cards`](./kaboom/cards)
 
----
+Main entrypoints:
 
-## Action System
-
-All player interactions are represented as **Action objects**.
-
-Core actions include:
-
-```
-Draw
-Discard
-Replace
-UsePower
-CallKaboom
-CloseReaction
-ReactDiscardOwnCard
-ReactDiscardOwnCards
-ReactDiscardOtherCard
-ReactDiscardOtherCards
-```
-
-The function:
-
-```
-get_valid_actions(state)
-```
-
-returns the full list of legal actions for the current state.
-
----
-
-## Project Structure
-
-```
-kaboom/
-    cards/
-    players/
-    powers/
-    game/
-        actions.py
-        game_state.py
-        phases.py
-        reaction.py
-        results.py
-        turn.py
-        validators.py
-
-tests/
-examples/
-```
-
-Key modules:
-
-```
-kaboom/cards      → card definitions
-kaboom/players    → player state and memory
-kaboom/powers     → card power implementations
-kaboom/game       → engine logic, actions, validation
-```
-
----
+* `GameEngine`
+* `GameState`
+* `apply_action(state, action)`
+* `get_valid_actions(state)`
 
 ## Testing
 
-The engine includes a full pytest test suite.
-
-Run tests:
+Run the test suite with:
 
 ```bash
 pytest
 ```
 
-Coverage includes:
+Important test coverage areas:
 
-* card scoring
-* deck creation
-* player management
-* power mechanics
-* turn actions
-* reaction logic
-* Kaboom endgame rules
-* full game initialization
-
----
-
-## Future Improvements
-
-Planned enhancements:
-
-* CLI interface
-* graphical UI
-* AI player agents
-* multiplayer networking
-* replay and event logging
-* Gym-compatible environment for reinforcement learning
-
----
+* setup and dealing
+* powers
+* reactions
+* turn flow
+* Kaboom endgame
+* memory updates after card movement
 
 ## License
 
-This project is licensed under the MIT License.
-
----
-
-## Author
-
-[Arnav Ajay](https://github.com/Arnav-Ajay)
+MIT

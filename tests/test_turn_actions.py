@@ -6,9 +6,12 @@ from kaboom.game.actions import Draw, Discard, Replace, CallKaboom, CloseReactio
 from kaboom.exceptions import InvalidActionError
 
 def test_draw_adds_drawn_card(simple_game_state):
-    apply_action(simple_game_state, Draw(actor_id=0))
+    results = apply_action(simple_game_state, Draw(actor_id=0))
     assert simple_game_state.drawn_card is not None
     assert len(simple_game_state.deck) == 1
+    assert results[0].phase_before == "turn_draw"
+    assert results[0].phase_after == "turn_resolve"
+    assert results[0].next_player_id == 0
 
 def test_cannot_draw_twice(simple_game_state):
     apply_action(simple_game_state, Draw(actor_id=0))
@@ -39,6 +42,21 @@ def test_replace_discards_old_card(simple_game_state):
     assert len(p1.hand) == 4
     assert simple_game_state.drawn_card is None
     assert simple_game_state.reaction_open is True
+
+
+def test_replace_updates_memory_for_new_card(simple_game_state):
+    player = simple_game_state.resolve_player(0)
+    observer = simple_game_state.resolve_player(1)
+
+    player.remember(0, 0, player.hand[0])
+    observer.remember(0, 0, player.hand[0])
+
+    apply_action(simple_game_state, Draw(actor_id=0))
+    drawn_card = simple_game_state.drawn_card
+    apply_action(simple_game_state, Replace(actor_id=0, target_index=0))
+
+    assert player.memory[(0, 0)] == drawn_card
+    assert (0, 0) not in observer.memory
 
 
 def test_replace_invalid_index_fails(simple_game_state):

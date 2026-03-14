@@ -1,5 +1,5 @@
 # kaboom/powers/registry.py
-from ..cards.card import Rank
+from ..cards.card import Card, Rank, Suit
 from typing import Optional
 from .see_self import SeeSelfPower
 from .see_other import SeeOtherPower
@@ -24,7 +24,7 @@ POWER_CARD_RANKS = {
     Rank.K,
 }
 
-def get_power_for_card(rank: Rank) -> Optional[PowerType]:
+def get_power_for_rank(rank: Rank) -> Optional[PowerType]:
     """
     Return the PowerType associated with a card rank.
 
@@ -32,7 +32,7 @@ def get_power_for_card(rank: Rank) -> Optional[PowerType]:
     7,8  -> SeeSelf
     9,10 -> SeeOther
     J,Q  -> BlindSwap
-    K    -> SeeAndSwap
+    K    -> SeeAndSwap candidate, subject to suit validation
     """
 
     if rank in {Rank.SEVEN, Rank.EIGHT}:
@@ -46,5 +46,26 @@ def get_power_for_card(rank: Rank) -> Optional[PowerType]:
 
     if rank == Rank.K:
         return PowerType.SEE_AND_SWAP
+
+    return None
+
+
+def get_power_for_card(card: Card | Rank) -> Optional[PowerType]:
+    """
+    Return the PowerType associated with a concrete card.
+
+    Backward compatibility:
+    * if a Rank is passed, rank-only mapping is used
+    * if a Card is passed, the black-king restriction for SeeAndSwap is enforced
+    """
+    if isinstance(card, Rank):
+        return get_power_for_rank(card)
+
+    power_type = get_power_for_rank(card.rank)
+    if power_type != PowerType.SEE_AND_SWAP:
+        return power_type
+
+    if card.suit in {Suit.SPADES, Suit.CLUBS}:
+        return power_type
 
     return None
